@@ -156,6 +156,7 @@
                             <apiPackage>com.rubenrbr.products.infrastructure.rest</apiPackage>
                             <modelPackage>com.rubenrbr.products.infrastructure.rest.dto</modelPackage>
                             <apiNameSuffix>Api</apiNameSuffix>
+                            <modelNameSuffix>Dto</modelNameSuffix>
                             <configOptions>
                                 <interfaceOnly>true</interfaceOnly>
                                 <sourceFolder>src/main/java</sourceFolder>
