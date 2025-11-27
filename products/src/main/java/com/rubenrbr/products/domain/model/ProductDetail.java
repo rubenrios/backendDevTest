@@ -2,4 +2,14 @@ package com.rubenrbr.products.domain.model;
 
 import java.math.BigDecimal;
 
-public record ProductDetail(String id, String name, BigDecimal price, Boolean availability) {}
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
+import lombok.Builder;
+
+@Builder
+public record ProductDetail(
+    @NotBlank String id,
+    @NotBlank String name,
+    @NotNull @Positive BigDecimal price,
+    @NotNull Boolean availability) {}

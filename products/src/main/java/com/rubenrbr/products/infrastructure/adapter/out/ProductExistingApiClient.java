@@ -40,6 +40,8 @@ public class ProductExistingApiClient {
               .bodyToMono(new ParameterizedTypeReference<List<String>>() {})
               .block();
       return Optional.ofNullable(similarIds);
+    } catch (InvalidProductRequestException e) {
+      throw e;
     } catch (RuntimeException e) {
       throw new ExternalApiException();
     }
