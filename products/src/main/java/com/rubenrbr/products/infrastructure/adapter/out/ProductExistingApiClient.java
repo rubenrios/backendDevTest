@@ -3,6 +3,7 @@ package com.rubenrbr.products.infrastructure.adapter.out;
 import java.util.List;
 import java.util.Optional;
 
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.stereotype.Component;
@@ -22,6 +23,7 @@ public class ProductExistingApiClient {
 
   private final WebClient webClient;
 
+  @Cacheable(value = "similar-ids", key = "#productId")
   public Optional<List<String>> getSimilarProductIds(String productId) {
     try {
       List<String> similarIds =
@@ -43,6 +45,7 @@ public class ProductExistingApiClient {
     }
   }
 
+  @Cacheable(value = "product-detail", key = "#productId")
   public Optional<ProductDetailDto> getProductDetail(String productId) {
     try {
       ProductDetailDto dto =

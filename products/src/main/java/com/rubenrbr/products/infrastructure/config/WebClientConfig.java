@@ -18,7 +18,7 @@ public class WebClientConfig {
   @Value("${external.api.product.base-url}")
   private String baseUrl;
 
-  @Value("${external.api.product.timeout:5}")
+  @Value("${external.api.product.timeout}")
   private int timeout;
 
   @Bean
