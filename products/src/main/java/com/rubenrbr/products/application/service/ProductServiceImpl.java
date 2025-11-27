@@ -1,6 +1,7 @@
 package com.rubenrbr.products.application.service;
 
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
 
@@ -18,6 +19,8 @@ public class ProductServiceImpl implements ProductService {
 
   @Override
   public Set<ProductDetail> getSimilarProducts(String productId) {
-    return Set.of();
+    return productRepository.getSimilarIds(productId).stream()
+        .map(productRepository::getProductDetail)
+        .collect(Collectors.toSet());
   }
 }

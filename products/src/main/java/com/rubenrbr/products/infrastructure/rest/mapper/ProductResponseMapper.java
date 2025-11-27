@@ -10,7 +10,7 @@ import com.rubenrbr.products.infrastructure.rest.dto.ProductDetailDto;
 @Mapper(componentModel = "spring")
 public interface ProductResponseMapper {
 
-  ProductDetailDto productToProductDetail(ProductDetail product);
+  ProductDetailDto productDetailToProductDetailDto(ProductDetail product);
 
-  Set<ProductDetailDto> productToProductDetail(Set<ProductDetail> product);
+  Set<ProductDetailDto> productDetailToProductDetailDto(Set<ProductDetail> product);
 }

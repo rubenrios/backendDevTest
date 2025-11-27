@@ -5,6 +5,7 @@ import java.util.List;
 import org.springframework.stereotype.Component;
 
 import com.rubenrbr.products.domain.exception.ProductNotFoundException;
+import com.rubenrbr.products.domain.model.ProductDetail;
 import com.rubenrbr.products.domain.port.out.ProductRepository;
 import com.rubenrbr.products.infrastructure.rest.dto.ProductDetailDto;
 
@@ -15,12 +16,16 @@ import lombok.RequiredArgsConstructor;
 public class ProductRepositoryAdapter implements ProductRepository {
 
   private final ProductExistingApiClient productExistingApiClient;
+  private final ProductMapper productMapper;
 
   @Override
-  public ProductDetailDto getProductDetail(String productId) {
-    return productExistingApiClient
-        .getProductDetail(productId)
-        .orElseThrow(() -> new ProductNotFoundException(productId));
+  public ProductDetail getProductDetail(String productId) {
+    ProductDetailDto dto =
+        productExistingApiClient
+            .getProductDetail(productId)
+            .orElseThrow(() -> new ProductNotFoundException(productId));
+
+    return productMapper.productDetailDtoToProductDetail(dto);
   }
 
   @Override

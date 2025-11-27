@@ -22,6 +22,6 @@ public class ProductController implements ProductApi {
 
   public ResponseEntity<Set<ProductDetailDto>> getProductSimilar(String productId) {
     Set<ProductDetail> products = productService.getSimilarProducts(productId);
-    return ResponseEntity.ok(mapper.productToProductDetail(products));
+    return ResponseEntity.ok(mapper.productDetailToProductDetailDto(products));
   }
 }
