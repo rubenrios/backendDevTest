@@ -7,9 +7,9 @@ import org.springframework.stereotype.Component;
 import com.rubenrbr.products.domain.exception.ProductNotFoundException;
 import com.rubenrbr.products.domain.model.ProductDetail;
 import com.rubenrbr.products.domain.port.out.ProductRepository;
-import com.rubenrbr.products.infrastructure.rest.dto.ProductDetailDto;
 
 import lombok.RequiredArgsConstructor;
+import reactor.core.publisher.Mono;
 
 @Component
 @RequiredArgsConstructor
@@ -19,19 +19,17 @@ public class ProductRepositoryAdapter implements ProductRepository {
   private final ProductMapper productMapper;
 
   @Override
-  public ProductDetail getProductDetail(String productId) {
-    ProductDetailDto dto =
-        productExistingApiClient
-            .getProductDetail(productId)
-            .orElseThrow(() -> new ProductNotFoundException(productId));
-
-    return productMapper.productDetailDtoToProductDetail(dto);
+  public Mono<ProductDetail> getProductDetail(String productId) {
+    return productExistingApiClient
+        .getProductDetail(productId)
+        .switchIfEmpty(Mono.error(new ProductNotFoundException(productId)))
+        .map(productMapper::productDetailDtoToProductDetail);
   }
 
   @Override
-  public List<String> getSimilarIds(String productId) {
+  public Mono<List<String>> getSimilarIds(String productId) {
     return productExistingApiClient
         .getSimilarProductIds(productId)
-        .orElseThrow(() -> new ProductNotFoundException(productId));
+        .switchIfEmpty(Mono.error(new ProductNotFoundException(productId)));
   }
 }

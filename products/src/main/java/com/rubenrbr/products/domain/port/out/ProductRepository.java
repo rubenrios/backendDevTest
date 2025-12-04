@@ -4,9 +4,11 @@ import java.util.List;
 
 import com.rubenrbr.products.domain.model.ProductDetail;
 
+import reactor.core.publisher.Mono;
+
 public interface ProductRepository {
 
-  ProductDetail getProductDetail(String productId);
+  Mono<ProductDetail> getProductDetail(String productId);
 
-  List<String> getSimilarIds(String productId);
+  Mono<List<String>> getSimilarIds(String productId);
 }
