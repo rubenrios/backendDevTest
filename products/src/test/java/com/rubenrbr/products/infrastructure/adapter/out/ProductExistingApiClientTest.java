@@ -2,33 +2,35 @@ package com.rubenrbr.products.infrastructure.adapter.out;
 
 import static com.rubenrbr.products.infrastructure.util.TestUtil.createProductDetailDto;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.math.BigDecimal;
-import java.util.Arrays;
 import java.util.List;
-import java.util.Optional;
+import java.util.function.Predicate;
 
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.web.reactive.function.client.WebClientException;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
 
 import com.rubenrbr.products.domain.exception.ExternalApiException;
-import com.rubenrbr.products.domain.exception.InvalidProductRequestException;
 import com.rubenrbr.products.infrastructure.rest.dto.ProductDetailDto;
 
 import reactor.core.publisher.Mono;
+import reactor.test.StepVerifier;
 
 @ExtendWith(MockitoExtension.class)
+@DisplayName("ProductExistingApiClient Unit Tests")
 class ProductExistingApiClientTest {
 
   @Mock private WebClient webClient;
@@ -46,209 +48,285 @@ class ProductExistingApiClientTest {
     apiClient = new ProductExistingApiClient(webClient);
   }
 
-  @Test
-  void getSimilarProductIds_shouldReturnListOfIds_whenApiReturnsSuccessfully() {
-    String productId = "1";
-    List<String> expectedIds = Arrays.asList("2", "3", "4");
+  @Nested
+  @DisplayName("getSimilarProductIds Tests")
+  class GetSimilarProductIdsTests {
 
-    when(webClient.get()).thenReturn(requestHeadersUriSpec);
-    when(requestHeadersUriSpec.uri(anyString(), any(Object.class))).thenReturn(requestHeadersSpec);
-    when(requestHeadersSpec.retrieve()).thenReturn(responseSpec);
-    when(responseSpec.onStatus(any(), any())).thenReturn(responseSpec);
-    when(responseSpec.bodyToMono(any(ParameterizedTypeReference.class)))
-        .thenReturn(Mono.just(expectedIds));
+    @Test
+    @DisplayName("Should return list of similar product IDs on successful request")
+    void shouldReturnListOfSimilarProductIds() {
+      String productId = "100";
+      List<String> expectedIds = List.of("1", "2", "3");
 
-    Optional<List<String>> result = apiClient.getSimilarProductIds(productId);
+      when(webClient.get()).thenReturn(requestHeadersUriSpec);
+      when(requestHeadersUriSpec.uri(anyString(), anyString())).thenReturn(requestHeadersSpec);
+      when(requestHeadersSpec.retrieve()).thenReturn(responseSpec);
+      when(responseSpec.onStatus(any(Predicate.class), any())).thenReturn(responseSpec);
+      when(responseSpec.bodyToMono(any(org.springframework.core.ParameterizedTypeReference.class)))
+          .thenReturn(Mono.just(expectedIds));
 
-    assertThat(result).isPresent();
-    assertThat(result.get()).hasSize(3);
-    assertThat(result.get()).containsExactly("2", "3", "4");
-    verify(webClient).get();
+      Mono<List<String>> result = apiClient.getSimilarProductIds(productId);
+
+      StepVerifier.create(result)
+          .assertNext(
+              ids -> {
+                assertThat(ids).hasSize(3);
+                assertThat(ids).containsExactly("1", "2", "3");
+              })
+          .verifyComplete();
+
+      verify(webClient).get();
+      verify(requestHeadersUriSpec).uri("/{productId}/similarids", productId);
+    }
+
+    @Test
+    @DisplayName("Should return empty list when API returns empty response")
+    void shouldReturnEmptyListWhenApiReturnsEmpty() {
+      String productId = "100";
+
+      when(webClient.get()).thenReturn(requestHeadersUriSpec);
+      when(requestHeadersUriSpec.uri(anyString(), anyString())).thenReturn(requestHeadersSpec);
+      when(requestHeadersSpec.retrieve()).thenReturn(responseSpec);
+      when(responseSpec.onStatus(any(Predicate.class), any())).thenReturn(responseSpec);
+      when(responseSpec.bodyToMono(any(org.springframework.core.ParameterizedTypeReference.class)))
+          .thenReturn(Mono.empty());
+
+      Mono<List<String>> result = apiClient.getSimilarProductIds(productId);
+
+      StepVerifier.create(result).assertNext(ids -> assertThat(ids).isEmpty()).verifyComplete();
+    }
+
+    @Test
+    @DisplayName("Should throw ExternalApiException on 400 status (caught by onErrorResume)")
+    void shouldThrowExternalApiExceptionOn400() {
+      String productId = "invalid";
+      WebClientResponseException ex =
+          WebClientResponseException.create(
+              HttpStatus.BAD_REQUEST.value(), "Bad Request", null, null, null);
+
+      when(webClient.get()).thenReturn(requestHeadersUriSpec);
+      when(requestHeadersUriSpec.uri(anyString(), anyString())).thenReturn(requestHeadersSpec);
+      when(requestHeadersSpec.retrieve()).thenReturn(responseSpec);
+      when(responseSpec.onStatus(any(Predicate.class), any())).thenReturn(responseSpec);
+      when(responseSpec.bodyToMono(any(org.springframework.core.ParameterizedTypeReference.class)))
+          .thenReturn(Mono.error(ex));
+
+      Mono<List<String>> result = apiClient.getSimilarProductIds(productId);
+
+      StepVerifier.create(result).expectError(ExternalApiException.class).verify();
+    }
+
+    @Test
+    @DisplayName("Should throw ExternalApiException on 5xx status")
+    void shouldThrowExternalApiExceptionOn5xx() {
+      String productId = "100";
+      WebClientResponseException ex =
+          WebClientResponseException.create(
+              HttpStatus.INTERNAL_SERVER_ERROR.value(), "Internal Server Error", null, null, null);
+
+      when(webClient.get()).thenReturn(requestHeadersUriSpec);
+      when(requestHeadersUriSpec.uri(anyString(), anyString())).thenReturn(requestHeadersSpec);
+      when(requestHeadersSpec.retrieve()).thenReturn(responseSpec);
+      when(responseSpec.onStatus(any(Predicate.class), any())).thenReturn(responseSpec);
+      when(responseSpec.bodyToMono(any(org.springframework.core.ParameterizedTypeReference.class)))
+          .thenReturn(Mono.error(ex));
+
+      Mono<List<String>> result = apiClient.getSimilarProductIds(productId);
+
+      StepVerifier.create(result).expectError(ExternalApiException.class).verify();
+    }
+
+    @Test
+    @DisplayName("Should throw ExternalApiException on WebClientException")
+    void shouldThrowExternalApiExceptionOnWebClientException() {
+      String productId = "100";
+      WebClientException ex = new WebClientException("Connection timeout") {};
+
+      when(webClient.get()).thenReturn(requestHeadersUriSpec);
+      when(requestHeadersUriSpec.uri(anyString(), anyString())).thenReturn(requestHeadersSpec);
+      when(requestHeadersSpec.retrieve()).thenReturn(responseSpec);
+      when(responseSpec.onStatus(any(Predicate.class), any())).thenReturn(responseSpec);
+      when(responseSpec.bodyToMono(any(org.springframework.core.ParameterizedTypeReference.class)))
+          .thenReturn(Mono.error(ex));
+
+      Mono<List<String>> result = apiClient.getSimilarProductIds(productId);
+
+      StepVerifier.create(result).expectError(ExternalApiException.class).verify();
+    }
+
+    @Test
+    @DisplayName("Should handle single product ID in list")
+    void shouldHandleSingleProductIdInList() {
+      String productId = "100";
+      List<String> expectedIds = List.of("1");
+
+      when(webClient.get()).thenReturn(requestHeadersUriSpec);
+      when(requestHeadersUriSpec.uri(anyString(), anyString())).thenReturn(requestHeadersSpec);
+      when(requestHeadersSpec.retrieve()).thenReturn(responseSpec);
+      when(responseSpec.onStatus(any(Predicate.class), any())).thenReturn(responseSpec);
+      when(responseSpec.bodyToMono(any(org.springframework.core.ParameterizedTypeReference.class)))
+          .thenReturn(Mono.just(expectedIds));
+
+      Mono<List<String>> result = apiClient.getSimilarProductIds(productId);
+
+      StepVerifier.create(result)
+          .assertNext(
+              ids -> {
+                assertThat(ids).hasSize(1);
+                assertThat(ids).containsExactly("1");
+              })
+          .verifyComplete();
+    }
   }
 
-  @Test
-  void getSimilarProductIds_shouldReturnEmptyOptional_whenApiReturnsNull() {
-    String productId = "1";
+  @Nested
+  @DisplayName("getProductDetail Tests")
+  class GetProductDetailTests {
 
-    when(webClient.get()).thenReturn(requestHeadersUriSpec);
-    when(requestHeadersUriSpec.uri(anyString(), any(Object.class))).thenReturn(requestHeadersSpec);
-    when(requestHeadersSpec.retrieve()).thenReturn(responseSpec);
-    when(responseSpec.onStatus(any(), any())).thenReturn(responseSpec);
-    when(responseSpec.bodyToMono(any(ParameterizedTypeReference.class))).thenReturn(Mono.empty());
+    @Test
+    @DisplayName("Should return product detail on successful request")
+    void shouldReturnProductDetail() {
+      String productId = "1";
+      ProductDetailDto expectedProduct =
+          createProductDetailDto("1", "Test Product", BigDecimal.valueOf(99.99), true);
 
-    Optional<List<String>> result = apiClient.getSimilarProductIds(productId);
+      when(webClient.get()).thenReturn(requestHeadersUriSpec);
+      when(requestHeadersUriSpec.uri(anyString(), anyString())).thenReturn(requestHeadersSpec);
+      when(requestHeadersSpec.retrieve()).thenReturn(responseSpec);
+      when(responseSpec.onStatus(any(Predicate.class), any())).thenReturn(responseSpec);
+      when(responseSpec.bodyToMono(ProductDetailDto.class)).thenReturn(Mono.just(expectedProduct));
 
-    assertThat(result).isEmpty();
+      Mono<ProductDetailDto> result = apiClient.getProductDetail(productId);
+
+      StepVerifier.create(result)
+          .assertNext(
+              product -> {
+                assertThat(product.getId()).isEqualTo("1");
+                assertThat(product.getName()).isEqualTo("Test Product");
+                assertThat(product.getPrice()).isEqualByComparingTo(BigDecimal.valueOf(99.99));
+                assertThat(product.getAvailability()).isTrue();
+              })
+          .verifyComplete();
+
+      verify(webClient).get();
+      verify(requestHeadersUriSpec).uri("/{productId}", productId);
+    }
+
+    @Test
+    @DisplayName("Should return empty Mono when product not found (404)")
+    void shouldReturnEmptyMonoWhenProductNotFound() {
+      String productId = "999";
+      WebClientResponseException notFoundException =
+          WebClientResponseException.create(
+              HttpStatus.NOT_FOUND.value(), "Not Found", null, null, null);
+
+      when(webClient.get()).thenReturn(requestHeadersUriSpec);
+      when(requestHeadersUriSpec.uri(anyString(), anyString())).thenReturn(requestHeadersSpec);
+      when(requestHeadersSpec.retrieve()).thenReturn(responseSpec);
+      when(responseSpec.onStatus(any(Predicate.class), any())).thenReturn(responseSpec);
+      when(responseSpec.bodyToMono(ProductDetailDto.class))
+          .thenReturn(Mono.error(notFoundException));
+
+      Mono<ProductDetailDto> result = apiClient.getProductDetail(productId);
+
+      StepVerifier.create(result).verifyComplete();
+    }
+
+    @Test
+    @DisplayName("Should throw ExternalApiException on 400 status")
+    void shouldThrowExternalApiExceptionOn400() {
+      String productId = "invalid";
+      WebClientResponseException ex =
+          WebClientResponseException.create(
+              HttpStatus.BAD_REQUEST.value(), "Bad Request", null, null, null);
+
+      when(webClient.get()).thenReturn(requestHeadersUriSpec);
+      when(requestHeadersUriSpec.uri(anyString(), anyString())).thenReturn(requestHeadersSpec);
+      when(requestHeadersSpec.retrieve()).thenReturn(responseSpec);
+      when(responseSpec.onStatus(any(Predicate.class), any())).thenReturn(responseSpec);
+      when(responseSpec.bodyToMono(ProductDetailDto.class)).thenReturn(Mono.error(ex));
+
+      Mono<ProductDetailDto> result = apiClient.getProductDetail(productId);
+
+      StepVerifier.create(result).expectError(WebClientResponseException.class).verify();
+    }
+
+    @Test
+    @DisplayName("Should throw ExternalApiException on 5xx status")
+    void shouldThrowExternalApiExceptionOn5xx() {
+      String productId = "1";
+      WebClientResponseException ex =
+          WebClientResponseException.create(
+              HttpStatus.SERVICE_UNAVAILABLE.value(), "Service Unavailable", null, null, null);
+
+      when(webClient.get()).thenReturn(requestHeadersUriSpec);
+      when(requestHeadersUriSpec.uri(anyString(), anyString())).thenReturn(requestHeadersSpec);
+      when(requestHeadersSpec.retrieve()).thenReturn(responseSpec);
+      when(responseSpec.onStatus(any(Predicate.class), any())).thenReturn(responseSpec);
+      when(responseSpec.bodyToMono(ProductDetailDto.class)).thenReturn(Mono.error(ex));
+
+      Mono<ProductDetailDto> result = apiClient.getProductDetail(productId);
+
+      StepVerifier.create(result).expectError(WebClientResponseException.class).verify();
+    }
   }
 
-  @Test
-  void getSimilarProductIds_shouldThrowInvalidProductRequestException_when400Response() {
-    String productId = "invalid";
+  @Nested
+  @DisplayName("Error Handling Tests")
+  class ErrorHandlingTests {
 
-    when(webClient.get()).thenReturn(requestHeadersUriSpec);
-    when(requestHeadersUriSpec.uri(anyString(), any(Object.class))).thenReturn(requestHeadersSpec);
-    when(requestHeadersSpec.retrieve()).thenReturn(responseSpec);
-    when(responseSpec.onStatus(any(), any()))
-        .thenAnswer(
-            invocation -> {
-              throw new InvalidProductRequestException(productId);
-            });
+    @Test
+    @DisplayName("Should handle connection timeout for getSimilarProductIds")
+    void shouldHandleConnectionTimeoutForSimilarIds() {
+      String productId = "100";
+      WebClientException timeoutException = new WebClientException("Connection timeout") {};
 
-    assertThatThrownBy(() -> apiClient.getSimilarProductIds(productId))
-        .isInstanceOf(InvalidProductRequestException.class);
-  }
+      when(webClient.get()).thenReturn(requestHeadersUriSpec);
+      when(requestHeadersUriSpec.uri(anyString(), anyString())).thenReturn(requestHeadersSpec);
+      when(requestHeadersSpec.retrieve()).thenReturn(responseSpec);
+      when(responseSpec.onStatus(any(Predicate.class), any())).thenReturn(responseSpec);
+      when(responseSpec.bodyToMono(any(org.springframework.core.ParameterizedTypeReference.class)))
+          .thenReturn(Mono.error(timeoutException));
 
-  @Test
-  void getSimilarProductIds_shouldThrowExternalApiException_when5xxResponse() {
-    String productId = "1";
+      Mono<List<String>> result = apiClient.getSimilarProductIds(productId);
 
-    when(webClient.get()).thenReturn(requestHeadersUriSpec);
-    when(requestHeadersUriSpec.uri(anyString(), any(Object.class))).thenReturn(requestHeadersSpec);
-    when(requestHeadersSpec.retrieve()).thenReturn(responseSpec);
-    when(responseSpec.onStatus(any(), any()))
-        .thenAnswer(
-            invocation -> {
-              throw new ExternalApiException();
-            });
+      StepVerifier.create(result).expectError(ExternalApiException.class).verify();
+    }
 
-    assertThatThrownBy(() -> apiClient.getSimilarProductIds(productId))
-        .isInstanceOf(ExternalApiException.class);
-  }
+    @Test
+    @DisplayName("Should verify URI template for getSimilarProductIds")
+    void shouldVerifyUriTemplateForSimilarIds() {
+      String productId = "ABC123";
+      List<String> expectedIds = List.of("1");
 
-  @Test
-  void getSimilarProductIds_shouldThrowExternalApiException_onRuntimeException() {
-    String productId = "1";
+      when(webClient.get()).thenReturn(requestHeadersUriSpec);
+      when(requestHeadersUriSpec.uri(anyString(), anyString())).thenReturn(requestHeadersSpec);
+      when(requestHeadersSpec.retrieve()).thenReturn(responseSpec);
+      when(responseSpec.onStatus(any(Predicate.class), any())).thenReturn(responseSpec);
+      when(responseSpec.bodyToMono(any(org.springframework.core.ParameterizedTypeReference.class)))
+          .thenReturn(Mono.just(expectedIds));
 
-    when(webClient.get()).thenReturn(requestHeadersUriSpec);
-    when(requestHeadersUriSpec.uri(anyString(), any(Object.class)))
-        .thenThrow(new RuntimeException("Network error"));
+      apiClient.getSimilarProductIds(productId);
 
-    assertThatThrownBy(() -> apiClient.getSimilarProductIds(productId))
-        .isInstanceOf(ExternalApiException.class);
-  }
+      verify(requestHeadersUriSpec).uri("/{productId}/similarids", productId);
+    }
 
-  @Test
-  void getSimilarProductIds_shouldReturnEmptyList_whenApiReturnsEmptyList() {
-    String productId = "1";
-    List<String> emptyList = Arrays.asList();
+    @Test
+    @DisplayName("Should verify URI template for getProductDetail")
+    void shouldVerifyUriTemplateForProductDetail() {
+      String productId = "XYZ789";
+      ProductDetailDto product =
+          createProductDetailDto("1", "Test Product", BigDecimal.valueOf(99.99), true);
 
-    when(webClient.get()).thenReturn(requestHeadersUriSpec);
-    when(requestHeadersUriSpec.uri(anyString(), any(Object.class))).thenReturn(requestHeadersSpec);
-    when(requestHeadersSpec.retrieve()).thenReturn(responseSpec);
-    when(responseSpec.onStatus(any(), any())).thenReturn(responseSpec);
-    when(responseSpec.bodyToMono(any(ParameterizedTypeReference.class)))
-        .thenReturn(Mono.just(emptyList));
+      when(webClient.get()).thenReturn(requestHeadersUriSpec);
+      when(requestHeadersUriSpec.uri(anyString(), anyString())).thenReturn(requestHeadersSpec);
+      when(requestHeadersSpec.retrieve()).thenReturn(responseSpec);
+      when(responseSpec.onStatus(any(Predicate.class), any())).thenReturn(responseSpec);
+      when(responseSpec.bodyToMono(ProductDetailDto.class)).thenReturn(Mono.just(product));
 
-    Optional<List<String>> result = apiClient.getSimilarProductIds(productId);
+      apiClient.getProductDetail(productId);
 
-    assertThat(result).isPresent();
-    assertThat(result.get()).isEmpty();
-  }
-
-  @Test
-  void getProductDetail_shouldReturnProductDto_whenApiReturnsSuccessfully() {
-    String productId = "1";
-    ProductDetailDto expectedDto = createProductDetailDto("1", "Product1");
-
-    when(webClient.get()).thenReturn(requestHeadersUriSpec);
-    when(requestHeadersUriSpec.uri(anyString(), any(Object.class))).thenReturn(requestHeadersSpec);
-    when(requestHeadersSpec.retrieve()).thenReturn(responseSpec);
-    when(responseSpec.onStatus(any(), any())).thenReturn(responseSpec);
-    when(responseSpec.bodyToMono(ProductDetailDto.class)).thenReturn(Mono.just(expectedDto));
-
-    Optional<ProductDetailDto> result = apiClient.getProductDetail(productId);
-
-    assertThat(result).isPresent();
-    assertThat(result.get().getId()).isEqualTo("1");
-    assertThat(result.get().getName()).isEqualTo("Product1");
-    assertThat(result.get().getPrice()).isEqualTo(BigDecimal.ONE);
-    verify(webClient).get();
-  }
-
-  @Test
-  void getProductDetail_shouldReturnEmptyOptional_whenApiReturnsNull() {
-    String productId = "1";
-
-    when(webClient.get()).thenReturn(requestHeadersUriSpec);
-    when(requestHeadersUriSpec.uri(anyString(), any(Object.class))).thenReturn(requestHeadersSpec);
-    when(requestHeadersSpec.retrieve()).thenReturn(responseSpec);
-    when(responseSpec.onStatus(any(), any())).thenReturn(responseSpec);
-    when(responseSpec.bodyToMono(ProductDetailDto.class)).thenReturn(Mono.empty());
-
-    Optional<ProductDetailDto> result = apiClient.getProductDetail(productId);
-
-    assertThat(result).isEmpty();
-  }
-
-  @Test
-  void getProductDetail_shouldReturnEmptyOptional_when404NotFound() {
-    String productId = "999";
-    WebClientResponseException notFoundException =
-        WebClientResponseException.create(404, "Not Found", null, null, null);
-
-    when(webClient.get()).thenReturn(requestHeadersUriSpec);
-    when(requestHeadersUriSpec.uri(anyString(), any(Object.class))).thenReturn(requestHeadersSpec);
-    when(requestHeadersSpec.retrieve()).thenReturn(responseSpec);
-    when(responseSpec.onStatus(any(), any())).thenReturn(responseSpec);
-    when(responseSpec.bodyToMono(ProductDetailDto.class)).thenThrow(notFoundException);
-
-    Optional<ProductDetailDto> result = apiClient.getProductDetail(productId);
-
-    assertThat(result).isEmpty();
-  }
-
-  @Test
-  void getProductDetail_shouldThrowInvalidProductRequestException_when400Response() {
-    String productId = "invalid";
-
-    when(webClient.get()).thenReturn(requestHeadersUriSpec);
-    when(requestHeadersUriSpec.uri(anyString(), any(Object.class))).thenReturn(requestHeadersSpec);
-    when(requestHeadersSpec.retrieve()).thenReturn(responseSpec);
-    when(responseSpec.onStatus(any(), any()))
-        .thenAnswer(
-            invocation -> {
-              throw new InvalidProductRequestException(productId);
-            });
-
-    assertThatThrownBy(() -> apiClient.getProductDetail(productId))
-        .isInstanceOf(InvalidProductRequestException.class);
-  }
-
-  @Test
-  void getProductDetail_shouldThrowExternalApiException_when5xxResponse() {
-    String productId = "1";
-
-    when(webClient.get()).thenReturn(requestHeadersUriSpec);
-    when(requestHeadersUriSpec.uri(anyString(), any(Object.class))).thenReturn(requestHeadersSpec);
-    when(requestHeadersSpec.retrieve()).thenReturn(responseSpec);
-    when(responseSpec.onStatus(any(), any()))
-        .thenAnswer(
-            invocation -> {
-              throw new ExternalApiException();
-            });
-
-    assertThatThrownBy(() -> apiClient.getProductDetail(productId))
-        .isInstanceOf(ExternalApiException.class);
-  }
-
-  @Test
-  void getProductDetail_shouldHandleCompleteProductData() {
-    String productId = "1";
-    ProductDetailDto expectedDto = createProductDetailDto("1", "Product1");
-
-    when(webClient.get()).thenReturn(requestHeadersUriSpec);
-    when(requestHeadersUriSpec.uri(anyString(), any(Object.class))).thenReturn(requestHeadersSpec);
-    when(requestHeadersSpec.retrieve()).thenReturn(responseSpec);
-    when(responseSpec.onStatus(any(), any())).thenReturn(responseSpec);
-    when(responseSpec.bodyToMono(ProductDetailDto.class)).thenReturn(Mono.just(expectedDto));
-
-    Optional<ProductDetailDto> result = apiClient.getProductDetail(productId);
-
-    assertThat(result).isPresent();
-    ProductDetailDto dto = result.get();
-    assertThat(dto.getId()).isEqualTo("1");
-    assertThat(dto.getName()).isEqualTo("Product1");
-    assertThat(dto.getPrice()).isEqualTo(BigDecimal.ONE);
-    assertThat(dto.getAvailability()).isTrue();
+      verify(requestHeadersUriSpec).uri("/{productId}", productId);
+    }
   }
 }

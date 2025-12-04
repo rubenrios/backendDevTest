@@ -29,11 +29,7 @@ public class ProductServiceImpl implements ProductService {
             id ->
                 productRepository
                     .getProductDetail(id)
-                    .onErrorResume(
-                        ProductNotFoundException.class,
-                        e -> {
-                          return Mono.empty();
-                        }))
+                    .onErrorResume(ProductNotFoundException.class, e -> Mono.empty()))
         .collect(Collectors.toSet());
   }
 }

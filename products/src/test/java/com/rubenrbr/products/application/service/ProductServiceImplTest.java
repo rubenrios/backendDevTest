@@ -3,15 +3,16 @@ package com.rubenrbr.products.application.service;
 import static com.rubenrbr.products.infrastructure.util.TestUtil.createProductDetail;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import java.util.Arrays;
-import java.util.Collections;
+import java.math.BigDecimal;
 import java.util.List;
-import java.util.Set;
 
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -22,109 +23,192 @@ import com.rubenrbr.products.domain.exception.ProductNotFoundException;
 import com.rubenrbr.products.domain.model.ProductDetail;
 import com.rubenrbr.products.domain.port.out.ProductRepository;
 
+import reactor.core.publisher.Mono;
+import reactor.test.StepVerifier;
+
 @ExtendWith(MockitoExtension.class)
+@DisplayName("ProductServiceImpl Tests")
 class ProductServiceImplTest {
 
   @Mock private ProductRepository productRepository;
 
   @InjectMocks private ProductServiceImpl productService;
 
+  private ProductDetail productDetail1;
+  private ProductDetail productDetail2;
+  private ProductDetail productDetail3;
+
+  @BeforeEach
+  void setUp() {
+    productDetail1 = createProductDetail("1", "Product 1", BigDecimal.valueOf(10.99), true);
+
+    productDetail2 = createProductDetail("2", "Product 2", BigDecimal.valueOf(20.99), true);
+
+    productDetail3 = createProductDetail("3", "Product 3", BigDecimal.valueOf(30.99), true);
+  }
+
   @Test
-  void getSimilarProducts_shouldReturnAllProducts_whenAllIdsExist() {
-    String productId = "1";
-    List<String> similarIds = Arrays.asList("2", "3", "4");
+  @DisplayName("Should return all similar products when all exist")
+  void shouldReturnAllSimilarProductsWhenAllExist() {
+    String productId = "100";
+    List<String> similarIds = List.of("1", "2", "3");
 
-    ProductDetail product2 = createProductDetail("2", "Product2");
-    ProductDetail product3 = createProductDetail("3", "Product3");
-    ProductDetail product4 = createProductDetail("4", "Product4");
+    when(productRepository.getSimilarIds(productId)).thenReturn(Mono.just(similarIds));
+    when(productRepository.getProductDetail("1")).thenReturn(Mono.just(productDetail1));
+    when(productRepository.getProductDetail("2")).thenReturn(Mono.just(productDetail2));
+    when(productRepository.getProductDetail("3")).thenReturn(Mono.just(productDetail3));
 
-    when(productRepository.getSimilarIds(productId)).thenReturn(similarIds);
-    when(productRepository.getProductDetail("2")).thenReturn(product2);
-    when(productRepository.getProductDetail("3")).thenReturn(product3);
-    when(productRepository.getProductDetail("4")).thenReturn(product4);
+    StepVerifier.create(productService.getSimilarProducts(productId))
+        .assertNext(
+            products -> {
+              assertThat(products).hasSize(3);
+              assertThat(products)
+                  .containsExactlyInAnyOrder(productDetail1, productDetail2, productDetail3);
+            })
+        .verifyComplete();
 
-    Set<ProductDetail> result = productService.getSimilarProducts(productId);
-
-    assertThat(result).hasSize(3);
-    assertThat(result).containsExactlyInAnyOrder(product2, product3, product4);
     verify(productRepository).getSimilarIds(productId);
+    verify(productRepository).getProductDetail("1");
     verify(productRepository).getProductDetail("2");
     verify(productRepository).getProductDetail("3");
-    verify(productRepository).getProductDetail("4");
   }
 
   @Test
-  void getSimilarProducts_shouldReturnEmptySet_whenNoSimilarIdsExist() {
-    String productId = "1";
-    List<String> similarIds = Collections.emptyList();
+  @DisplayName("Should return empty set when no similar products exist")
+  void shouldReturnEmptySetWhenNoSimilarProductsExist() {
+    String productId = "100";
+    List<String> similarIds = List.of();
 
-    when(productRepository.getSimilarIds(productId)).thenReturn(similarIds);
+    when(productRepository.getSimilarIds(productId)).thenReturn(Mono.just(similarIds));
 
-    Set<ProductDetail> result = productService.getSimilarProducts(productId);
+    StepVerifier.create(productService.getSimilarProducts(productId))
+        .assertNext(products -> assertThat(products).isEmpty())
+        .verifyComplete();
 
-    assertThat(result).isEmpty();
     verify(productRepository).getSimilarIds(productId);
-    verify(productRepository, times(0)).getProductDetail(anyString());
+    verify(productRepository, never()).getProductDetail(anyString());
   }
 
   @Test
-  void getSimilarProducts_shouldFilterOutNulls_whenSomeProductsNotFound() {
-    String productId = "1";
-    List<String> similarIds = Arrays.asList("2", "3", "4");
+  @DisplayName("Should skip products that throw ProductNotFoundException")
+  void shouldSkipProductsThatThrowProductNotFoundException() {
+    String productId = "100";
+    List<String> similarIds = List.of("1", "2", "3");
 
-    ProductDetail product2 = createProductDetail("2", "Product2");
-    ProductDetail product4 = createProductDetail("4", "Product4");
-
-    when(productRepository.getSimilarIds(productId)).thenReturn(similarIds);
-    when(productRepository.getProductDetail("2")).thenReturn(product2);
-    when(productRepository.getProductDetail("3"))
-        .thenThrow(new ProductNotFoundException("Product 3 not found"));
-    when(productRepository.getProductDetail("4")).thenReturn(product4);
-
-    Set<ProductDetail> result = productService.getSimilarProducts(productId);
-
-    assertThat(result).hasSize(2);
-    assertThat(result).containsExactlyInAnyOrder(product2, product4);
-    verify(productRepository).getSimilarIds(productId);
-    verify(productRepository).getProductDetail("2");
-    verify(productRepository).getProductDetail("3");
-    verify(productRepository).getProductDetail("4");
-  }
-
-  @Test
-  void getSimilarProducts_shouldReturnEmptySet_whenAllProductsNotFound() {
-    String productId = "1";
-    List<String> similarIds = Arrays.asList("2", "3");
-
-    when(productRepository.getSimilarIds(productId)).thenReturn(similarIds);
+    when(productRepository.getSimilarIds(productId)).thenReturn(Mono.just(similarIds));
+    when(productRepository.getProductDetail("1")).thenReturn(Mono.just(productDetail1));
     when(productRepository.getProductDetail("2"))
-        .thenThrow(new ProductNotFoundException("Product 2 not found"));
-    when(productRepository.getProductDetail("3"))
-        .thenThrow(new ProductNotFoundException("Product 3 not found"));
+        .thenReturn(Mono.error(new ProductNotFoundException("Product 2 not found")));
+    when(productRepository.getProductDetail("3")).thenReturn(Mono.just(productDetail3));
 
-    Set<ProductDetail> result = productService.getSimilarProducts(productId);
+    StepVerifier.create(productService.getSimilarProducts(productId))
+        .assertNext(
+            products -> {
+              assertThat(products).hasSize(2);
+              assertThat(products).containsExactlyInAnyOrder(productDetail1, productDetail3);
+              assertThat(products).doesNotContain(productDetail2);
+            })
+        .verifyComplete();
 
-    assertThat(result).isEmpty();
     verify(productRepository).getSimilarIds(productId);
-    verify(productRepository).getProductDetail("2");
-    verify(productRepository).getProductDetail("3");
+    verify(productRepository, times(3)).getProductDetail(anyString());
   }
 
   @Test
-  void getSimilarProducts_shouldReturnSetWithoutDuplicates_whenSimilarIdsContainDuplicates() {
-    String productId = "1";
-    List<String> similarIds = Arrays.asList("2", "2", "3");
+  @DisplayName("Should return empty set when all products throw ProductNotFoundException")
+  void shouldReturnEmptySetWhenAllProductsThrowProductNotFoundException() {
+    String productId = "100";
+    List<String> similarIds = List.of("1", "2", "3");
 
-    ProductDetail product2 = createProductDetail("2", "Product 2");
-    ProductDetail product3 = createProductDetail("3", "Product 3");
+    when(productRepository.getSimilarIds(productId)).thenReturn(Mono.just(similarIds));
+    when(productRepository.getProductDetail("1"))
+        .thenReturn(Mono.error(new ProductNotFoundException("Product 1 not found")));
+    when(productRepository.getProductDetail("2"))
+        .thenReturn(Mono.error(new ProductNotFoundException("Product 2 not found")));
+    when(productRepository.getProductDetail("3"))
+        .thenReturn(Mono.error(new ProductNotFoundException("Product 3 not found")));
 
-    when(productRepository.getSimilarIds(productId)).thenReturn(similarIds);
-    when(productRepository.getProductDetail("2")).thenReturn(product2);
-    when(productRepository.getProductDetail("3")).thenReturn(product3);
+    StepVerifier.create(productService.getSimilarProducts(productId))
+        .assertNext(products -> assertThat(products).isEmpty())
+        .verifyComplete();
 
-    Set<ProductDetail> result = productService.getSimilarProducts(productId);
+    verify(productRepository).getSimilarIds(productId);
+    verify(productRepository, times(3)).getProductDetail(anyString());
+  }
 
-    assertThat(result).hasSize(2);
-    assertThat(result).containsExactlyInAnyOrder(product2, product3);
+  @Test
+  @DisplayName("Should propagate error when getSimilarIds fails")
+  void shouldPropagateErrorWhenGetSimilarIdsFails() {
+    String productId = "100";
+    RuntimeException exception = new RuntimeException("Database error");
+
+    when(productRepository.getSimilarIds(productId)).thenReturn(Mono.error(exception));
+
+    StepVerifier.create(productService.getSimilarProducts(productId))
+        .expectErrorMatches(
+            e -> e instanceof RuntimeException && e.getMessage().equals("Database error"))
+        .verify();
+
+    verify(productRepository).getSimilarIds(productId);
+    verify(productRepository, never()).getProductDetail(anyString());
+  }
+
+  @Test
+  @DisplayName("Should propagate non-ProductNotFoundException errors from getProductDetail")
+  void shouldPropagateNonProductNotFoundExceptionErrors() {
+    String productId = "100";
+    List<String> similarIds = List.of("1", "2");
+    RuntimeException exception = new RuntimeException("Unexpected error");
+
+    when(productRepository.getSimilarIds(productId)).thenReturn(Mono.just(similarIds));
+    when(productRepository.getProductDetail("1")).thenReturn(Mono.just(productDetail1));
+    when(productRepository.getProductDetail("2")).thenReturn(Mono.error(exception));
+
+    StepVerifier.create(productService.getSimilarProducts(productId))
+        .expectErrorMatches(
+            e -> e instanceof RuntimeException && e.getMessage().equals("Unexpected error"))
+        .verify();
+
+    verify(productRepository).getSimilarIds(productId);
+  }
+
+  @Test
+  @DisplayName("Should handle single similar product")
+  void shouldHandleSingleSimilarProduct() {
+    String productId = "100";
+    List<String> similarIds = List.of("1");
+
+    when(productRepository.getSimilarIds(productId)).thenReturn(Mono.just(similarIds));
+    when(productRepository.getProductDetail("1")).thenReturn(Mono.just(productDetail1));
+
+    StepVerifier.create(productService.getSimilarProducts(productId))
+        .assertNext(
+            products -> {
+              assertThat(products).hasSize(1);
+              assertThat(products).contains(productDetail1);
+            })
+        .verifyComplete();
+  }
+
+  @Test
+  @DisplayName("Should handle duplicate product IDs and return unique products")
+  void shouldHandleDuplicateProductIds() {
+    String productId = "100";
+    List<String> similarIds = List.of("1", "1", "2");
+
+    when(productRepository.getSimilarIds(productId)).thenReturn(Mono.just(similarIds));
+    when(productRepository.getProductDetail("1")).thenReturn(Mono.just(productDetail1));
+    when(productRepository.getProductDetail("2")).thenReturn(Mono.just(productDetail2));
+
+    StepVerifier.create(productService.getSimilarProducts(productId))
+        .assertNext(
+            products -> {
+              assertThat(products).hasSize(2);
+              assertThat(products).containsExactlyInAnyOrder(productDetail1, productDetail2);
+            })
+        .verifyComplete();
+
+    verify(productRepository, times(2)).getProductDetail("1");
+    verify(productRepository).getProductDetail("2");
   }
 }
