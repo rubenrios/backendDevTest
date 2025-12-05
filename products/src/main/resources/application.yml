@@ -1,0 +1,42 @@
+server:
+  port: 5000
+
+spring:
+  application:
+    name: products
+  main:
+    web-application-type: reactive
+
+external:
+  api:
+    product:
+      base-url: http://localhost:3001/product
+      timeout: 60
+
+resilience4j:
+  circuitbreaker:
+    instances:
+      product-similar-ids:
+        slidingWindowSize: 10
+        failureRateThreshold: 50
+      product-detail:
+        slidingWindowSize: 10
+        failureRateThreshold: 50
+
+  retry:
+    instances:
+      product-similar-ids:
+        maxAttempts: 3
+        waitDuration: 500ms
+      product-detail:
+        maxAttempts: 3
+        waitDuration: 500ms
+
+  ratelimiter:
+    instances:
+      product-similar-ids:
+        limitForPeriod: 100
+        limitRefreshPeriod: 1s
+      product-detail:
+        limitForPeriod: 100
+        limitRefreshPeriod: 1s
