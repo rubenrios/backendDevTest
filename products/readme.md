@@ -2,40 +2,77 @@
 
 ## Project Description
 
-A Product Management API
+A reactive Product Management API built with Spring Boot and WebFlux.  
+It retrieves product information from an external API and exposes
+REST endpoints using a clean Hexagonal Architecture.
 
 ## Key Features
 
-- Product querying
-- RESTful API endpoints
+- Reactive REST API (Spring WebFlux)
+- Product similarity lookup
+- Resilience patterns (CircuitBreaker, Retry, RateLimiter, Timeout)
+- Caching for frequently accessed product data
+- WebClient-based external API integration
 - Swagger/OpenAPI documentation
+- Unit, integration, and end-to-end (E2E) tests
 
 ## Prerequisites
 
 - Java 17+
 - Maven 3.8+
-- Spring Boot 3.4.x or higher
+- Spring Boot 3.4.x
 
 ## Technologies Used
 
-- Spring Boot
+- Spring Boot / Spring WebFlux
+- Spring Cache
+- Resilience4j (CircuitBreaker, Retry, RateLimiter)
+- WebClient
 - Swagger/OpenAPI
-- JUnit 5
-- Mockito
+- JUnit 5, Mockito
+- WireMock (E2E tests)
 
 ## API Documentation
 
-API documentation is available via Swagger:
-- Swagger UI URL: `http://localhost:5000/swagger-ui.html`
-- OpenAPI Specification: `http://localhost:5000/v3/api-docs`
+The API exposes an OpenAPI contract and Swagger UI:
 
+- Swagger UI: `http://localhost:5000/swagger-ui.html`
+- OpenAPI Specification: `http://localhost:5000/openapi.yml`
 
 ## Architecture
 
-The project follows a Hexagonal (Ports and Adapters) architecture:
-- `domain`: Core business logic
-- `application`: Application services
-- `infrastructure`: Implementations, adapters, and external concerns
+This project follows a **Hexagonal (Ports & Adapters) architecture**:
+
+- **domain** — business models, ports, domain exceptions  
+- **application** — orchestrates use cases  
+- **infrastructure** — adapters (REST controller, WebClient client, config)
+
+Outbound calls to the external Product API are handled through an adapter:
+`ProductExistingApiClient`, which includes caching and resilience patterns.
+
+## Resilience
+
+The application implements several Resilience4j patterns:
+
+- **Circuit Breaker** to prevent cascading failures  
+- **Retry** with controlled backoff  
+- **Rate Limiter** to limit outbound traffic  
+- **Timeouts** at WebClient and Reactor level  
+
+Configurations are defined in `application.yml` and tuned down in
+`application-test.yml` for faster and deterministic tests.
+
+## Testing
+
+The project includes:
+
+- **Unit tests** for domain and application services  
+- **Integration tests** for adapters  
+- **End-to-end (E2E) tests** using:
+  - `WebTestClient` to call the real HTTP layer  
+  - `WireMock` to simulate the external Product API  
+
+E2E tests use a dedicated `application-test.yml`.
 
 ## Quick Start
 
@@ -55,13 +92,13 @@ mvn clean install
 mvn spring-boot:run
 ```
 
-The application will start on `http://localhost:5000`
+The API will start at:  
+`http://localhost:5000`
 
 ## Additional Notes
 
-- The project follows a hexagonal architecture (domain, application, infrastructure).
-- The API contract is defined using OpenAPI, and DTOs are generated automatically.
-- WebClient is used for outbound calls to the external product API.
-- Some calls are cached using Spring Cache to improve performance and reduce latency.
-- Errors from the external API are mapped to domain exceptions and handled gracefully.
-- Integration and unit tests are included for the main components.
+- DTOs and API interfaces are generated from the OpenAPI contract.
+- All outbound HTTP calls are handled through a single WebClient bean.
+- Errors from the external API are mapped to domain exceptions and processed
+  by a centralized `GlobalExceptionHandler`.
+- Caching reduces repeated external calls for product details and similar IDs.
