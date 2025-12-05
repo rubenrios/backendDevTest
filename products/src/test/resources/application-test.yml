@@ -1,0 +1,35 @@
+external:
+  api:
+    product:
+      base-url: http://localhost:8089/product
+      timeout: 5
+
+resilience4j:
+  circuitbreaker:
+    instances:
+      product-similar-ids:
+        slidingWindowSize: 5
+        failureRateThreshold: 50
+        waitDurationInOpenState: 1s
+      product-detail:
+        slidingWindowSize: 5
+        failureRateThreshold: 50
+        waitDurationInOpenState: 1s
+
+  retry:
+    instances:
+      product-similar-ids:
+        maxAttempts: 1
+        waitDuration: 100ms
+      product-detail:
+        maxAttempts: 1
+        waitDuration: 100ms
+
+  ratelimiter:
+    instances:
+      product-similar-ids:
+        limitForPeriod: 9999
+        limitRefreshPeriod: 1s
+      product-detail:
+        limitForPeriod: 9999
+        limitRefreshPeriod: 1s

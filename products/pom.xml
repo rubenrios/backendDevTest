@@ -6,7 +6,7 @@
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
         <version>3.4.3</version>
-        <relativePath/> <!-- lookup parent from repository -->
+        <relativePath/>
     </parent>
     <groupId>com.rubenrbr</groupId>
     <artifactId>products</artifactId>
@@ -28,21 +28,19 @@
     </scm>
     <properties>
         <java.version>21</java.version>
-        <openapi-generator.version>7.0.1</openapi-generator.version>
-        <springdoc-openapi.version>2.7.0</springdoc-openapi.version>
+        <openapi-generator.version>7.17.0</openapi-generator.version>
+        <springdoc-openapi.version>2.8.0</springdoc-openapi.version>
         <checkstyle.version>10.12.3</checkstyle.version>
         <spotless.version>2.40.0</spotless.version>
         <google-java-format.version>1.17.0</google-java-format.version>
         <mapstruct.version>1.5.5.Final</mapstruct.version>
+        <lombok.version>1.18.36</lombok.version>
         <lombok-mapstruct-binding.version>0.2.0</lombok-mapstruct-binding.version>
+        <resilience4j.version>2.3.0</resilience4j.version>
     </properties>
 
     <dependencies>
         <!-- Spring Boot -->
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-web</artifactId>
-        </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-webflux</artifactId>
@@ -58,17 +56,10 @@
             <optional>true</optional>
         </dependency>
 
-        <!-- Database -->
-        <dependency>
-            <groupId>com.h2database</groupId>
-            <artifactId>h2</artifactId>
-            <scope>runtime</scope>
-        </dependency>
-
         <!-- OpenAPI -->
         <dependency>
             <groupId>org.springdoc</groupId>
-            <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+            <artifactId>springdoc-openapi-starter-webflux-ui</artifactId>
             <version>${springdoc-openapi.version}</version>
         </dependency>
         <dependency>
@@ -97,6 +88,34 @@
             <artifactId>spring-boot-starter-test</artifactId>
             <scope>test</scope>
         </dependency>
+        <dependency>
+            <groupId>io.projectreactor</groupId>
+            <artifactId>reactor-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.wiremock</groupId>
+            <artifactId>wiremock-standalone</artifactId>
+            <version>3.3.1</version>
+            <scope>test</scope>
+        </dependency>
+
+        <!-- Resilience4j  -->
+        <dependency>
+            <groupId>io.github.resilience4j</groupId>
+            <artifactId>resilience4j-spring-boot3</artifactId>
+            <version>${resilience4j.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>io.github.resilience4j</groupId>
+            <artifactId>resilience4j-reactor</artifactId>
+            <version>${resilience4j.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-aop</artifactId>
+        </dependency>
+
     </dependencies>
 
     <build>
@@ -162,10 +181,13 @@
                             <apiNameSuffix>Api</apiNameSuffix>
                             <modelNameSuffix>Dto</modelNameSuffix>
                             <configOptions>
+                                <reactive>true</reactive>
                                 <interfaceOnly>true</interfaceOnly>
                                 <sourceFolder>src/main/java</sourceFolder>
                                 <java21>true</java21>
                                 <useJakartaEe>true</useJakartaEe>
+                                <useSpringBoot3>true</useSpringBoot3>
+                                <skipDefaultInterface>true</skipDefaultInterface>
                             </configOptions>
                         </configuration>
                     </execution>
