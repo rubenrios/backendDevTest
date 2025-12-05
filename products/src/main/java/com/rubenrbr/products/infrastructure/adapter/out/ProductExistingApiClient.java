@@ -8,11 +8,9 @@ import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
-import org.springframework.web.reactive.function.client.WebClientException;
-import org.springframework.web.reactive.function.client.WebClientResponseException;
 
 import com.rubenrbr.products.domain.exception.ExternalApiException;
-import com.rubenrbr.products.domain.exception.InvalidProductRequestException;
+import com.rubenrbr.products.domain.exception.ProductNotFoundException;
 import com.rubenrbr.products.infrastructure.rest.dto.ProductDetailDto;
 
 import lombok.RequiredArgsConstructor;
@@ -31,13 +29,12 @@ public class ProductExistingApiClient {
         .uri("/{productId}/similarids", productId)
         .retrieve()
         .onStatus(
-            status -> status.value() == 400,
-            response -> Mono.error(new InvalidProductRequestException(productId)))
+            status -> status.value() == 404,
+            response -> Mono.error(new ProductNotFoundException(productId)))
         .onStatus(
             HttpStatusCode::is5xxServerError, response -> Mono.error(new ExternalApiException()))
         .bodyToMono(new ParameterizedTypeReference<List<String>>() {})
-        .defaultIfEmpty(Collections.emptyList())
-        .onErrorResume(WebClientException.class, e -> Mono.error(new ExternalApiException()));
+        .defaultIfEmpty(Collections.emptyList());
   }
 
   @Cacheable(value = "product-detail", key = "#productId")
@@ -47,11 +44,10 @@ public class ProductExistingApiClient {
         .uri("/{productId}", productId)
         .retrieve()
         .onStatus(
-            status -> status.value() == 400,
-            response -> Mono.error(new InvalidProductRequestException(productId)))
+            status -> status.value() == 404,
+            response -> Mono.error(new ProductNotFoundException(productId)))
         .onStatus(
             HttpStatusCode::is5xxServerError, response -> Mono.error(new ExternalApiException()))
-        .bodyToMono(ProductDetailDto.class)
-        .onErrorResume(WebClientResponseException.NotFound.class, e -> Mono.empty());
+        .bodyToMono(ProductDetailDto.class);
   }
 }

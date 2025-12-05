@@ -4,7 +4,6 @@ import java.util.List;
 
 import org.springframework.stereotype.Component;
 
-import com.rubenrbr.products.domain.exception.ProductNotFoundException;
 import com.rubenrbr.products.domain.model.ProductDetail;
 import com.rubenrbr.products.domain.port.out.ProductRepository;
 
@@ -22,14 +21,11 @@ public class ProductRepositoryAdapter implements ProductRepository {
   public Mono<ProductDetail> getProductDetail(String productId) {
     return productExistingApiClient
         .getProductDetail(productId)
-        .switchIfEmpty(Mono.error(new ProductNotFoundException(productId)))
         .map(productMapper::productDetailDtoToProductDetail);
   }
 
   @Override
   public Mono<List<String>> getSimilarIds(String productId) {
-    return productExistingApiClient
-        .getSimilarProductIds(productId)
-        .switchIfEmpty(Mono.error(new ProductNotFoundException(productId)));
+    return productExistingApiClient.getSimilarProductIds(productId);
   }
 }

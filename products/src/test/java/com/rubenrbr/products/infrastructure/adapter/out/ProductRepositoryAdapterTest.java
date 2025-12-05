@@ -24,7 +24,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.rubenrbr.products.domain.exception.ExternalApiException;
 import com.rubenrbr.products.domain.exception.InvalidProductRequestException;
-import com.rubenrbr.products.domain.exception.ProductNotFoundException;
 import com.rubenrbr.products.domain.model.ProductDetail;
 import com.rubenrbr.products.infrastructure.rest.dto.ProductDetailDto;
 
@@ -80,26 +79,6 @@ class ProductRepositoryAdapterTest {
 
       verify(productExistingApiClient).getProductDetail(productId);
       verify(productMapper).productDetailDtoToProductDetail(productDetailDto);
-    }
-
-    @Test
-    @DisplayName("Should throw ProductNotFoundException when API returns empty")
-    void shouldThrowProductNotFoundExceptionWhenApiReturnsEmpty() {
-      String productId = "999";
-
-      when(productExistingApiClient.getProductDetail(productId)).thenReturn(Mono.empty());
-
-      Mono<ProductDetail> result = productRepositoryAdapter.getProductDetail(productId);
-
-      StepVerifier.create(result)
-          .expectErrorMatches(
-              error ->
-                  error instanceof ProductNotFoundException
-                      && error.getMessage().contains(productId))
-          .verify();
-
-      verify(productExistingApiClient).getProductDetail(productId);
-      verify(productMapper, never()).productDetailDtoToProductDetail(any());
     }
 
     @Test
@@ -201,25 +180,6 @@ class ProductRepositoryAdapterTest {
       Mono<List<String>> result = productRepositoryAdapter.getSimilarIds(productId);
 
       StepVerifier.create(result).assertNext(ids -> assertThat(ids).isEmpty()).verifyComplete();
-
-      verify(productExistingApiClient).getSimilarProductIds(productId);
-    }
-
-    @Test
-    @DisplayName("Should throw ProductNotFoundException when API returns empty Mono")
-    void shouldThrowProductNotFoundExceptionWhenApiReturnsEmptyMono() {
-      String productId = "999";
-
-      when(productExistingApiClient.getSimilarProductIds(productId)).thenReturn(Mono.empty());
-
-      Mono<List<String>> result = productRepositoryAdapter.getSimilarIds(productId);
-
-      StepVerifier.create(result)
-          .expectErrorMatches(
-              error ->
-                  error instanceof ProductNotFoundException
-                      && error.getMessage().contains(productId))
-          .verify();
 
       verify(productExistingApiClient).getSimilarProductIds(productId);
     }

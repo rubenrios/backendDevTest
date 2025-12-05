@@ -6,7 +6,6 @@ import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 
 import com.rubenrbr.products.domain.exception.ExternalApiException;
-import com.rubenrbr.products.domain.exception.InvalidProductRequestException;
 import com.rubenrbr.products.domain.exception.ProductNotFoundException;
 
 import io.swagger.v3.oas.annotations.Hidden;
@@ -22,13 +21,7 @@ public class GlobalExceptionHandler {
 
   @ExceptionHandler(ExternalApiException.class)
   public ResponseEntity<String> handleExternalApiException(ExternalApiException ex) {
-    return new ResponseEntity<>(ex.getMessage(), HttpStatus.NOT_FOUND);
-  }
-
-  @ExceptionHandler(InvalidProductRequestException.class)
-  public ResponseEntity<String> handleInvalidProductRequestException(
-      InvalidProductRequestException ex) {
-    return new ResponseEntity<>(ex.getMessage(), HttpStatus.BAD_REQUEST);
+    return new ResponseEntity<>(ex.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
   }
 
   @ExceptionHandler(Exception.class)
